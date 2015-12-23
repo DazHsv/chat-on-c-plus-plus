@@ -71,6 +71,79 @@ int main(int agrc, char** argv){
 }
 
 
+/* FUNCTION DEFINITIONS */
 
+//  Takes a string of the clients name and assigns it to the value of the prompt pointer 
+string* buildPrompt(){
+	const int inputSize = 256;
+	char inputBuf[inputSize] = {0};
+	char nameBuf[inputSize] = {0};
+	string* prompt = new string(": ");
+	
+	return prompt;
+}
+
+// Creates a loop which only inserts into the thread when a message is available on the socket connected to the server
+void inboundLoop(socket_ptr sock, string_ptr prompt){
+	int bytesRead = 0;
+	char readBuf[1024] = {0};
+	
+	for(;;){
+		if(sock->available()){
+			bytesRead = sock->read_some(buffer(readBuf, inputSize));
+			string_ptr msg(new string(readBuf, bytesRead));
+			
+			messageQueue->push(msg);
+		}
+		
+		boost::this_thread::sleep( boost::posix_time::millisec(1000) );
+	}
+}
+
+// Write to Queue function
+void writeLoop(socket_ptr sock, string_ptr prompt){
+	char inputBuf[inputSize] = {0};
+	string inputMsg;
+	
+	for(;;){
+		cin.getline(inputBuf, inputSize);
+		inputMsg = *prompt + (string)inputBuf + '\n';
+		if(!inputMsg.empty()){
+			sock->write_some(buffer(inputMsg, inputSize));
+		}
+		
+		// The string for quitting the application
+		// On the serer-side there is also check for "quit" to terminate the TCP socket
+		if( inputMsg.find("exit") != string::npos ){
+			exit(1);
+		}
+		
+		inputMsg.clear();
+		memset(inputBuf, 0, inputSize);
+	}
+}
+
+
+// Display function
+void displayLoop(socket_ptr sock){
+	for(;;){
+		if( !messageQueue->empty() ){
+			if( !isOwnMessage(messageQueue->front()) ){
+				cout << "\n" + *(messageQueue->front());
+			}
+			
+			messageQueue->pop();
+		}
+		
+		boost::this_thread::sleep( boost::posix:time::millisec(1000) );
+	}
+}
+
+bool isOwnMessage(string_ptr message){
+	if( message->find(*promptCpy) != string::npos )
+		return true;
+	else
+		return false;
+}
 
 
